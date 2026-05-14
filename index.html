@@ -399,10 +399,24 @@
         <div class="paypal-detail">25,00 € Spende + 0,49 € PayPal-Gebühr (1,9 % + 0,35 €)</div>
         <div class="paypal-detail" style="margin-bottom:1rem;">Empfänger: Stegemann Horn Stiftung · info@stegemann-horn-stiftung.de</div>
         <button class="btn-primary" id="paypalBtn" onclick="openPayPal()">Jetzt mit PayPal zahlen</button>
-        <div style="margin-top:0.75rem;" id="paypalNachBtn" style="display:none;">
-          <button class="btn-primary" id="zahlungAbgeschlossenBtn" onclick="zahlungAbgeschlossen()" style="display:none;background:#1D9E75;">
-            Zahlung abgeschlossen – Liste erstellen →
-          </button>
+
+        <!-- Countdown -->
+        <div id="paypalCountdown" style="display:none;margin-top:1rem;background:#f4f6f8;border:1px solid #d0d4da;border-radius:8px;padding:1rem;text-align:center;">
+          <div style="font-size:14px;color:#555;margin-bottom:0.4rem;">Bitte schließen Sie die Zahlung bei PayPal ab. Der nächste Schritt erscheint in</div>
+          <div id="countdownZahl" style="font-size:2.4rem;font-weight:800;color:#178fd4;line-height:1.1;">90</div>
+          <div style="font-size:14px;color:#555;margin-top:0.3rem;">Sekunden…</div>
+        </div>
+
+        <!-- Transaktions-ID + Abschluss-Button -->
+        <div id="transaktionBox" style="display:none;margin-top:1rem;">
+          <label style="display:block;font-weight:600;margin-bottom:0.3rem;">PayPal-Transaktions-ID eingeben</label>
+          <input type="text" id="transaktionId" placeholder="z. B. 5TY12345XY123456A" oninput="checkTransaktionId()" style="max-width:340px;">
+          <div class="hint">Die Transaktions-ID finden Sie auf Ihrer PayPal-Bestätigungsseite oder in der Bestätigungs-E-Mail von PayPal (Beispiel: 5TY12345XY123456A)</div>
+          <div style="margin-top:0.75rem;">
+            <button class="btn-primary" id="zahlungAbgeschlossenBtn" onclick="zahlungAbgeschlossen()" disabled style="background:#1D9E75;opacity:0.5;cursor:not-allowed;">
+              Zahlung abgeschlossen – Liste erstellen →
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1136,18 +1150,52 @@ function goToStep(n) {
 }
 
 // ---- Step 4 PayPal ----
+let countdownInterval = null;
+
 function openPayPal() {
   if (STATE.config && STATE.config.paypal_link) {
     window.open(STATE.config.paypal_link, '_blank');
   }
-  document.getElementById('zahlungAbgeschlossenBtn').style.display = 'inline-block';
-  document.getElementById('paypalNachBtn').style.display = 'block';
+  const btn = document.getElementById('paypalBtn');
+  btn.disabled = true;
+
+  const countdown = document.getElementById('paypalCountdown');
+  const zahlDiv = document.getElementById('countdownZahl');
+  countdown.style.display = 'block';
+
+  let sek = 90;
+  zahlDiv.textContent = sek;
+
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    sek--;
+    zahlDiv.textContent = sek;
+    if (sek <= 0) {
+      clearInterval(countdownInterval);
+      countdown.style.display = 'none';
+      document.getElementById('transaktionBox').style.display = 'block';
+    }
+  }, 1000);
+}
+
+function checkTransaktionId() {
+  const val = document.getElementById('transaktionId').value;
+  const btn = document.getElementById('zahlungAbgeschlossenBtn');
+  if (val.length >= 8) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  }
 }
 
 function zahlungAbgeschlossen() {
   document.getElementById('zahlungErfolgBox').style.display = 'block';
   document.getElementById('paypalBtn').style.display = 'none';
-  document.getElementById('zahlungAbgeschlossenBtn').style.display = 'none';
+  document.getElementById('transaktionBox').style.display = 'none';
 }
 
 // ---- Password check ----
