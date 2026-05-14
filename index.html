@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Abrechnungsnachweis Verhinderungspflege</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    background: #f4f6f8;
+    color: #222;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+  .app-wrapper { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.35rem; font-weight: 700; color: #1a1a1a; margin-bottom: 1.5rem; text-align: center; }
+
+  /* Progress bar */
+  .progress-bar { display: flex; gap: 0; margin-bottom: 2rem; border-radius: 8px; overflow: hidden; }
+  .progress-step {
+    flex: 1; padding: 0.55rem 0.3rem; text-align: center; font-size: 12px; font-weight: 600;
+    background: #d0d4da; color: #666; cursor: default; position: relative;
+    transition: background 0.2s;
+  }
+  .progress-step.done { background: #1D9E75; color: #fff; }
+  .progress-step.active { background: #178fd4; color: #fff; }
+  .progress-step-num { display: block; font-size: 16px; font-weight: 700; }
+
+  /* Steps */
+  .step { display: none; }
+  .step.active { display: block; }
+
+  /* Card */
+  .card {
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+    padding: 1.5rem; margin-bottom: 1rem;
+  }
+  .card-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; color: #1a1a1a; }
+
+  /* Form fields */
+  .field { margin-bottom: 1.1rem; }
+  label { display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 14px; }
+  label .req { color: #E24B4A; margin-left: 2px; }
+  input[type="text"], input[type="number"], input[type="date"], input[type="password"], select, textarea {
+    width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #ccc; border-radius: 6px;
+    font-size: 15px; font-family: inherit; background: #fff; color: #222;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus { outline: none; border-color: #178fd4; }
+  input:disabled, select:disabled { background: #f0f0f0; color: #999; cursor: not-allowed; }
+  .hint { font-size: 13px; color: #666; margin-top: 0.3rem; }
+  .error-msg { font-size: 13px; color: #E24B4A; margin-top: 0.3rem; }
+
+  /* Pflegegrad tiles */
+  .pg-tiles { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .pg-tile {
+    flex: 1; min-width: 80px; padding: 0.75rem 0.5rem; border: 2px solid #ccc;
+    border-radius: 8px; text-align: center; cursor: pointer; font-weight: 700;
+    font-size: 1rem; transition: all 0.15s; background: #fff; user-select: none;
+  }
+  .pg-tile:hover:not(.disabled) { border-color: #178fd4; background: #eef6fc; }
+  .pg-tile.selected { border-color: #178fd4; background: #178fd4; color: #fff; }
+  .pg-tile.disabled { background: #f0f0f0; color: #aaa; cursor: not-allowed; }
+  .pg-tile .pg-hint { font-size: 10px; font-weight: 400; margin-top: 3px; display: block; }
+
+  /* Ersatzpflegepersonen list */
+  .person-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .person-row { display: flex; gap: 0.5rem; align-items: center; }
+  .person-row input { flex: 1; }
+  .btn-icon {
+    background: none; border: 1px solid #ccc; border-radius: 6px; padding: 0.4rem 0.6rem;
+    cursor: pointer; font-size: 16px; color: #555; transition: all 0.15s; flex-shrink: 0;
+  }
+  .btn-icon:hover { border-color: #E24B4A; color: #E24B4A; }
+  .btn-icon.add { border-color: #1D9E75; color: #1D9E75; }
+  .btn-icon.add:hover { background: #1D9E75; color: #fff; }
+
+  /* Buttons */
+  .btn-primary {
+    background: #178fd4; color: #fff; border: none; border-radius: 7px;
+    padding: 0.65rem 1.4rem; font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s; font-family: inherit;
+  }
+  .btn-primary:hover { background: #1278b5; }
+  .btn-primary:disabled { background: #a0c8e8; cursor: not-allowed; }
+  .btn-secondary {
+    background: #fff; color: #444; border: 1px solid #ccc; border-radius: 7px;
+    padding: 0.65rem 1.4rem; font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .btn-secondary:hover { border-color: #888; background: #f7f7f7; }
+
+  /* Navigation */
+  .step-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e5e5e5;
+  }
+
+  /* Info boxes */
+  .box-info { background: #eef6fc; border: 1px solid #a8d4f0; border-radius: 7px; padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 13px; color: #1a5a80; }
+  .box-warn { background: #FAEEDA; border: 1px solid #e8c87a; border-radius: 7px; padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 13px; color: #633806; }
+  .box-success { background: #e6f7f0; border: 1px solid #8dd6b5; border-radius: 7px; padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 13px; color: #1a5a3a; }
+  .box-error { background: #FCEBEB; border: 1px solid #f0a8a8; border-radius: 7px; padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 13px; color: #7a1a1a; }
+  .box-green-big {
+    background: #e6f7f0; border: 2px solid #1D9E75; border-radius: 8px;
+    padding: 1.2rem 1.5rem; margin: 1rem 0; text-align: center;
+  }
+  .box-green-big .amount { font-size: 2rem; font-weight: 800; color: #1D9E75; }
+  .box-green-big .formula { font-size: 13px; color: #555; margin-top: 0.4rem; }
+
+  /* Radio group */
+  .radio-group { display: flex; flex-direction: column; gap: 0.7rem; }
+  .radio-option {
+    border: 1px solid #ccc; border-radius: 7px; padding: 0.75rem 1rem; cursor: pointer;
+    transition: border-color 0.15s; display: flex; align-items: flex-start; gap: 0.6rem;
+  }
+  .radio-option:hover { border-color: #178fd4; }
+  .radio-option.selected { border-color: #178fd4; background: #eef6fc; }
+  .radio-option input[type="radio"] { margin-top: 3px; flex-shrink: 0; accent-color: #178fd4; }
+  .radio-label { font-weight: 600; }
+  .radio-desc { font-size: 13px; color: #666; margin-top: 2px; }
+
+  /* Checkbox */
+  .checkbox-row { display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.4rem; }
+  .checkbox-row input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; accent-color: #178fd4; width: 16px; height: 16px; }
+  .checkbox-label { font-size: 14px; cursor: pointer; }
+
+  /* Step 4 PayPal */
+  .paypal-box {
+    border: 2px solid #0070ba; border-radius: 10px; padding: 1.5rem;
+    text-align: center; margin-bottom: 1rem;
+  }
+  .paypal-logo { font-size: 1.6rem; font-weight: 800; color: #003087; letter-spacing: -1px; }
+  .paypal-logo span { color: #009cde; }
+  .paypal-amount { font-size: 2.2rem; font-weight: 800; color: #003087; margin: 0.5rem 0; }
+  .paypal-detail { font-size: 13px; color: #555; margin-bottom: 0.3rem; }
+  .divider-text { display: flex; align-items: center; gap: 1rem; margin: 1.2rem 0; color: #999; font-size: 13px; }
+  .divider-text::before, .divider-text::after { content: ''; flex: 1; border-top: 1px solid #ddd; }
+  .badge {
+    display: inline-block; padding: 0.2rem 0.7rem; border-radius: 20px; font-size: 12px;
+    font-weight: 700; margin-left: 0.5rem;
+  }
+  .badge-green { background: #e6f7f0; color: #1D9E75; border: 1px solid #1D9E75; }
+  .badge-gray { background: #f0f0f0; color: #888; border: 1px solid #ccc; }
+
+  /* Step 5 table */
+  .table-wrapper { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: #f4f6f8; font-weight: 700; padding: 0.55rem 0.5rem; text-align: left; border-bottom: 2px solid #d0d4da; white-space: nowrap; }
+  td { padding: 0.45rem 0.5rem; border-bottom: 1px solid #e8e8e8; vertical-align: middle; }
+  tr.row-error { background: #FCEBEB; }
+  tr.row-warn { background: #FAEEDA; }
+  tr.row-total td { font-weight: 700; border-top: 2px solid #d0d4da; background: #f4f6f8; }
+  .inline-edit { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+  .inline-edit input, .inline-edit select { width: auto; padding: 0.3rem 0.4rem; font-size: 13px; }
+  .inline-edit input[type="date"] { width: 140px; }
+  .inline-edit input[type="number"] { width: 70px; }
+  .error-count { font-size: 14px; font-weight: 700; color: #E24B4A; margin-bottom: 0.8rem; }
+
+  /* Signature */
+  .signature-block { margin-top: 2rem; }
+  .sig-person { margin-bottom: 1.5rem; }
+  .sig-line { border-top: 1px solid #333; padding-top: 0.3rem; font-size: 13px; color: #555; }
+
+  /* Design tiles */
+  .design-tiles { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.75rem 0; }
+  .design-tile {
+    flex: 1; min-width: 160px; border: 2px solid #ccc; border-radius: 8px;
+    padding: 0.75rem; cursor: pointer; transition: border-color 0.15s;
+  }
+  .design-tile:hover { border-color: #888; }
+  .design-tile.selected { border-color: #178fd4; }
+  .design-tile-preview {
+    height: 60px; border-radius: 4px; margin-bottom: 0.5rem; display: flex;
+    align-items: center; justify-content: center; font-size: 11px; font-weight: 600;
+  }
+  .design-tile-name { font-size: 13px; font-weight: 600; text-align: center; }
+
+  /* Share buttons */
+  .share-buttons { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
+  .btn-share {
+    display: flex; align-items: center; gap: 0.4rem; padding: 0.55rem 1rem;
+    border-radius: 7px; border: none; cursor: pointer; font-size: 14px; font-weight: 600;
+    font-family: inherit; transition: opacity 0.15s;
+  }
+  .btn-share:hover { opacity: 0.85; }
+  .btn-fb { background: #1877f2; color: #fff; }
+  .btn-wa { background: #25d366; color: #fff; }
+  .btn-mail { background: #ea4335; color: #fff; }
+  .btn-copy { background: #555; color: #fff; }
+
+  /* Loading */
+  #loading-overlay {
+    position: fixed; inset: 0; background: rgba(255,255,255,0.92);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; font-size: 16px; color: #555;
+  }
+
+  @media (max-width: 500px) {
+    .pg-tiles { gap: 0.35rem; }
+    .pg-tile { min-width: 55px; font-size: 0.9rem; }
+    .progress-step { font-size: 10px; padding: 0.4rem 0.1rem; }
+    .progress-step-num { font-size: 13px; }
+    .design-tiles { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">Konfiguration wird geladen…</div>
+
+<div class="app-wrapper">
+  <h1>Abrechnungsnachweis Verhinderungspflege</h1>
+
+  <!-- Progress bar -->
+  <div class="progress-bar" id="progressBar">
+    <div class="progress-step active" data-step="1"><span class="progress-step-num">1</span>Personen</div>
+    <div class="progress-step" data-step="2"><span class="progress-step-num">2</span>KH/Reha</div>
+    <div class="progress-step" data-step="3"><span class="progress-step-num">3</span>Betrag</div>
+    <div class="progress-step" data-step="4"><span class="progress-step-num">4</span>Zahlung</div>
+    <div class="progress-step" data-step="5"><span class="progress-step-num">5</span>Liste</div>
+    <div class="progress-step" data-step="6"><span class="progress-step-num">6</span>Teilen</div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="step active" id="step1">
+    <div class="card">
+      <div class="card-title">Personen &amp; Zeitraum</div>
+
+      <div class="field">
+        <label>Name der pflegebedürftigen Person <span class="req">*</span></label>
+        <input type="text" id="namePflegebeduerftig" placeholder="Vor- und Nachname">
+        <div class="error-msg" id="err-name" style="display:none">Pflichtfeld</div>
+      </div>
+
+      <div class="field">
+        <label>Versichertennummer (optional)</label>
+        <input type="text" id="versichertennummer" placeholder="z. B. A123456789">
+        <div class="hint">Steht auf der Krankenkassenkarte</div>
+      </div>
+
+      <div class="field">
+        <label>Pflegegrad <span class="req">*</span></label>
+        <div class="pg-tiles" id="pgTiles">
+          <div class="pg-tile disabled" data-pg="1">
+            PG 1
+            <span class="pg-hint">Kein Anspruch auf Verhinderungspflege</span>
+          </div>
+          <div class="pg-tile" data-pg="2">PG 2</div>
+          <div class="pg-tile" data-pg="3">PG 3</div>
+          <div class="pg-tile" data-pg="4">PG 4</div>
+          <div class="pg-tile" data-pg="5">PG 5</div>
+        </div>
+        <div class="error-msg" id="err-pg" style="display:none">Bitte Pflegegrad auswählen (PG 2–5)</div>
+      </div>
+
+      <div class="field">
+        <label>Name der verhinderten Pflegeperson (optional)</label>
+        <input type="text" id="nameVerhinderung" placeholder="Vor- und Nachname">
+      </div>
+
+      <div class="field">
+        <label>Ersatzpflegeperson(en) <span class="req">*</span></label>
+        <div class="person-list" id="personList"></div>
+        <button type="button" class="btn-icon add" id="addPersonBtn" style="margin-top:0.5rem" title="Person hinzufügen">+ Person hinzufügen</button>
+        <div class="hint">Bei mehreren Personen erscheint in der Liste eine Spalte „Wer war da?"</div>
+        <div class="error-msg" id="err-persons" style="display:none">Mindestens eine Ersatzpflegeperson angeben</div>
+      </div>
+
+      <div class="field">
+        <div class="checkbox-row">
+          <input type="checkbox" id="geldErhalten">
+          <label class="checkbox-label" for="geldErhalten">Die Ersatzpflegeperson(en) haben das Geld bereits erhalten</label>
+        </div>
+        <div class="hint" id="geldHint" style="display:none">Ein Unterschriftsfeld wird unter die Liste gesetzt.</div>
+      </div>
+
+      <div class="field">
+        <label>Abrechnungsjahr <span class="req">*</span></label>
+        <select id="abrechnungsjahr"></select>
+        <div id="jahrHinweis"></div>
+      </div>
+
+      <div class="field">
+        <div class="checkbox-row">
+          <input type="checkbox" id="vollesJahr">
+          <label class="checkbox-label" for="vollesJahr">Pflegegrad besteht schon länger als das Abrechnungsjahr – volles Jahr abrechenbar</label>
+        </div>
+        <div class="hint">Bis Juni 2025 war eine Vorpflegezeit von 6 Monaten erforderlich. Ab Juli 2025 ist diese Regelung entfallen.</div>
+        <div id="pflegegradSeit" style="display:flex; gap:0.75rem; margin-top:0.7rem; flex-wrap:wrap;">
+          <div style="flex:1; min-width:140px;">
+            <label>Pflegegrad besteht seit – Jahr <span class="req">*</span></label>
+            <select id="pgJahr"></select>
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label>Monat <span class="req">*</span></label>
+            <select id="pgMonat">
+              <option value="">– Monat –</option>
+              <option value="1">Januar</option><option value="2">Februar</option>
+              <option value="3">März</option><option value="4">April</option>
+              <option value="5">Mai</option><option value="6">Juni</option>
+              <option value="7">Juli</option><option value="8">August</option>
+              <option value="9">September</option><option value="10">Oktober</option>
+              <option value="11">November</option><option value="12">Dezember</option>
+            </select>
+          </div>
+        </div>
+        <div class="error-msg" id="err-pgzeit" style="display:none">Bitte Jahr und Monat des Pflegegrades angeben</div>
+      </div>
+
+      <div class="field">
+        <label>Stundenlohn (€/h) <span class="req">*</span></label>
+        <input type="number" id="stundenlohn" min="0" step="0.01" placeholder="z. B. 12.82">
+        <div class="hint" id="stundenlohnHint">Dies ist eine Aufwandsentschädigung, kein Lohn im rechtlichen Sinne. Orientierung: Mindestlohn <strong id="mindestlohnAnzeige">…</strong> €/h. Der Gesamtbetrag kann den Höchstbetrag übersteigen – die Pflegekasse erstattet jedoch maximal bis zum Höchstbetrag.</div>
+        <div class="error-msg" id="err-stundenlohn" style="display:none">Bitte gültigen Stundenlohn eingeben</div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <div></div>
+      <button class="btn-primary" onclick="goToStep2()">Weiter →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step" id="step2">
+    <div class="card">
+      <div class="card-title">Krankenhaus / Reha</div>
+      <p style="margin-bottom:1rem;">War die pflegebedürftige Person im Abrechnungszeitraum im Krankenhaus oder in einer Reha-Einrichtung?</p>
+
+      <div class="checkbox-row" style="margin-bottom:0.75rem;">
+        <input type="checkbox" id="khJa" onchange="toggleKH()">
+        <label class="checkbox-label" for="khJa">Ja, es gab Krankenhaus- oder Reha-Aufenthalte</label>
+      </div>
+
+      <div id="khZeitraeume">
+        <div class="kh-list" id="khList"></div>
+        <button type="button" class="btn-icon add" id="addKHBtn" onclick="addKHZeitraum()" disabled style="margin-top:0.5rem">+ Zeitraum hinzufügen</button>
+        <div class="box-info" id="khHinweis" style="display:none;margin-top:0.75rem;">
+          In diesen Zeiträumen werden keine Einträge in die Liste gesetzt. Der Höchstbetrag bleibt trotzdem voll erhalten.
+          Wenn Sie später manuell ein Datum in diesem Zeitraum eingeben, erhalten Sie eine Warnung.
+        </div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn-secondary" onclick="goToStep(1)">← Zurück</button>
+      <button class="btn-primary" onclick="goToStep(3)">Weiter →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step" id="step3">
+    <div class="card">
+      <div class="card-title">Höchstbetrag &amp; Abrechnung</div>
+      <div id="hoechstbetragBox" class="box-green-big">
+        <div class="amount" id="hoechstbetragAnzeige">…</div>
+        <div class="formula" id="hoechstbetragFormel"></div>
+      </div>
+
+      <div class="radio-group" id="betragRadioGroup">
+        <div class="radio-option selected" id="radioMaxOption" onclick="selectBetragRadio('max')">
+          <input type="radio" name="betragWahl" id="radioMax" value="max" checked>
+          <div>
+            <div class="radio-label" id="radioMaxLabel">Höchstbetrag vollständig ausschöpfen</div>
+            <div class="radio-desc">Täglich maximal 7,9 Stunden. Das Pflegegeld bleibt bei stundenweiser Verhinderungspflege ungekürzt.</div>
+          </div>
+        </div>
+        <div class="radio-option" id="radioEigenOption" onclick="selectBetragRadio('eigen')">
+          <input type="radio" name="betragWahl" id="radioEigen" value="eigen">
+          <div>
+            <div class="radio-label">Eigenen Betrag angeben</div>
+            <div style="margin-top:0.4rem;">
+              <input type="number" id="eigenBetrag" min="0" step="0.01" placeholder="Betrag in €" style="width:160px;" oninput="checkEigenBetrag()" disabled>
+              <div class="hint" id="eigenBetragHint" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn-secondary" onclick="goToStep(2)">← Zurück</button>
+      <button class="btn-primary" onclick="goToStep(4)">Weiter →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step" id="step4">
+    <div class="card">
+      <div class="card-title">Zahlung</div>
+
+      <div class="paypal-box">
+        <div class="paypal-logo">Pay<span>Pal</span></div>
+        <div class="paypal-amount">25,49 €</div>
+        <div class="paypal-detail">25,00 € Spende + 0,49 € PayPal-Gebühr (1,9 % + 0,35 €)</div>
+        <div class="paypal-detail" style="margin-bottom:1rem;">Empfänger: Stegemann Horn Stiftung · info@stegemann-horn-stiftung.de</div>
+        <button class="btn-primary" id="paypalBtn" onclick="openPayPal()">Jetzt mit PayPal zahlen</button>
+        <div style="margin-top:0.75rem;" id="paypalNachBtn" style="display:none;">
+          <button class="btn-primary" id="zahlungAbgeschlossenBtn" onclick="zahlungAbgeschlossen()" style="display:none;background:#1D9E75;">
+            Zahlung abgeschlossen – Liste erstellen →
+          </button>
+        </div>
+      </div>
+
+      <div id="zahlungErfolgBox" style="display:none;">
+        <div class="box-success">
+          ✅ Vielen Dank für Ihre Unterstützung! Ihr PayPal-Beleg dient als ausreichender Spendennachweis für das Finanzamt
+          (Spenden bis 300 € benötigen keine förmliche Spendenquittung, § 50 Abs. 2 EStDV).
+          Für eine offizielle Zuwendungsbestätigung wenden Sie sich bitte an: info@stegemann-horn-stiftung.de
+        </div>
+        <div style="margin-top:0.75rem; text-align:right;">
+          <button class="btn-primary" onclick="goToStep(5)">Liste erstellen →</button>
+        </div>
+      </div>
+
+      <div class="divider-text">Interner Zugang</div>
+
+      <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+        <input type="password" id="internPasswort" placeholder="Passwort" style="flex:1; max-width:280px;" oninput="checkPasswort()">
+        <span id="bypassBadge" class="badge badge-gray">Gesperrt</span>
+      </div>
+      <div id="bypassBtnBox" style="display:none;margin-top:0.75rem;">
+        <button class="btn-primary" onclick="goToStep(5)">Liste direkt erstellen →</button>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn-secondary" onclick="goToStep(3)">← Zurück</button>
+      <div></div>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step" id="step5">
+    <div class="card">
+      <div class="card-title">Liste prüfen &amp; anpassen</div>
+
+      <div id="errorCount" class="error-count" style="display:none;"></div>
+
+      <div style="margin-bottom:0.75rem;">
+        <button class="btn-secondary" onclick="addZeile()">+ Zeile hinzufügen</button>
+        <button class="btn-secondary" onclick="regenerateList()" style="margin-left:0.5rem;">↺ Neu generieren</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="listTable">
+          <thead id="listThead"></thead>
+          <tbody id="listBody"></tbody>
+        </table>
+      </div>
+
+      <div id="unterschriftBereich" style="display:none;" class="signature-block">
+        <div id="unterschriftInhalt"></div>
+      </div>
+
+      <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e5e5e5;">
+        <div style="margin-bottom:0.75rem; font-weight:700;">Design für PDF wählen:</div>
+        <div class="design-tiles" id="designTiles">
+          <div class="design-tile selected" data-design="1" onclick="selectDesign(1)">
+            <div class="design-tile-preview" style="background:#f4f4f4; color:#333; border:1px solid #ccc;">
+              <span>Schwarz-weiß</span>
+            </div>
+            <div class="design-tile-name">Schwarz-weiß</div>
+          </div>
+          <div class="design-tile" data-design="2" onclick="selectDesign(2)">
+            <div class="design-tile-preview" style="background:rgb(255,107,107); color:#fff;">
+              <span>Warmrot</span>
+            </div>
+            <div class="design-tile-name">Warmrot</div>
+          </div>
+          <div class="design-tile" data-design="3" onclick="selectDesign(3)">
+            <div class="design-tile-preview" style="background:rgb(108,99,255); color:#fff;">
+              <span>Lila-Türkis</span>
+            </div>
+            <div class="design-tile-name">Lila-Türkis</div>
+          </div>
+        </div>
+
+        <div class="checkbox-row" style="margin-bottom:1rem;">
+          <input type="checkbox" id="showFooter" checked>
+          <label class="checkbox-label" for="showFooter">Footer anzeigen: „Erstellt mit Abrechnungsnachweis Verhinderungspflege – Stegemann Horn Stiftung"</label>
+        </div>
+
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <button class="btn-primary" id="exportBtn" onclick="exportPDF()">Als PDF exportieren</button>
+          <button class="btn-secondary" onclick="window.print()">Drucken</button>
+        </div>
+        <div id="exportHinweis" style="display:none;" class="box-info" style="margin-top:0.75rem;">
+          Sie können das Design ändern und jederzeit ein neues PDF erstellen.
+        </div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn-secondary" onclick="goToStep(4)">← Zurück</button>
+      <button class="btn-primary" id="weiterZuTeilen" onclick="goToStep(6)" disabled>Fertig – Teilen →</button>
+    </div>
+  </div>
+
+  <!-- STEP 6 -->
+  <div class="step" id="step6">
+    <div class="card">
+      <div class="card-title">Teilen</div>
+      <div class="box-success" style="margin-bottom:1rem;">
+        ✅ Ihre Liste wurde erfolgreich als PDF erstellt!
+      </div>
+      <p style="margin-bottom:1rem;">Kennen Sie jemanden, dem dieses Tool helfen könnte? Ein geteilter Link kann wirklich helfen:</p>
+      <div class="share-buttons">
+        <button class="btn-share btn-fb" onclick="shareVia('facebook')">&#x1F4AC; Facebook</button>
+        <button class="btn-share btn-wa" onclick="shareVia('whatsapp')">&#x1F4F2; WhatsApp</button>
+        <button class="btn-share btn-mail" onclick="shareVia('email')">&#x2709; E-Mail</button>
+        <button class="btn-share btn-copy" onclick="copyLink()">&#x1F4CB; Link kopieren</button>
+      </div>
+      <div id="copySuccess" style="display:none;" class="box-success" style="margin-top:0.5rem;">Link in Zwischenablage kopiert!</div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn-secondary" onclick="goToStep(5)">← Zurück zur Liste</button>
+      <div></div>
+    </div>
+  </div>
+
+</div><!-- /app-wrapper -->
+
+<script>
+// ---- Global State ----
+const STATE = {
+  config: null,
+  currentStep: 1,
+  selectedPG: null,
+  persons: [],
+  khZeitraeume: [],
+  maßgeblichHoechstbetrag: 0,
+  betragWahl: 'max',
+  eigenBetrag: 0,
+  listData: [],
+  selectedDesign: 1,
+  pdfCreated: false,
+};
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const resp = await fetch('config-json.php');
+    STATE.config = await resp.json();
+  } catch(e) {
+    STATE.config = null;
+    document.getElementById('loading-overlay').textContent = 'Fehler beim Laden der Konfiguration. Bitte Seite neu laden.';
+    return;
+  }
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('mindestlohnAnzeige').textContent = formatEur(STATE.config.mindestlohn);
+  initJahrDropdown();
+  initPGJahrDropdown();
+  addPerson();
+  setupEventListeners();
+});
+
+function formatEur(v) { return (Math.round(v*100)/100).toFixed(2); }
+function formatDate(d) {
+  if (!d) return '';
+  const dt = (d instanceof Date) ? d : new Date(d);
+  return dt.toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function parseDate(s) {
+  if (!s) return null;
+  const p = s.split('-');
+  if (p.length !== 3) return null;
+  return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+}
+
+// ---- Year Dropdown ----
+function initJahrDropdown() {
+  const heute = new Date();
+  const aktJahr = heute.getFullYear();
+  const vorjahr = aktJahr - 1;
+  const sel = document.getElementById('abrechnungsjahr');
+  sel.innerHTML = '';
+  [aktJahr, vorjahr].forEach(j => {
+    const o = document.createElement('option');
+    o.value = j; o.textContent = j;
+    sel.appendChild(o);
+  });
+  sel.value = aktJahr;
+  updateJahrHinweis();
+  sel.addEventListener('change', updateJahrHinweis);
+}
+
+function initPGJahrDropdown() {
+  const heute = new Date();
+  const aktJahr = heute.getFullYear();
+  const sel = document.getElementById('pgJahr');
+  sel.innerHTML = '<option value="">– Jahr –</option>';
+  for (let y = aktJahr; y >= aktJahr - 30; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    sel.appendChild(o);
+  }
+}
+
+function updateJahrHinweis() {
+  const heute = new Date();
+  const aktJahr = heute.getFullYear();
+  const sel = parseInt(document.getElementById('abrechnungsjahr').value);
+  const box = document.getElementById('jahrHinweis');
+  if (sel === aktJahr) {
+    box.innerHTML = `<div class="box-info">Aktuelles Datum: <strong>${formatDate(heute)}</strong><br>
+      Es darf nur bis zum ${formatDate(heute)} abgerechnet werden.<br>
+      Antragsfrist: Einreichung bis 31.12.${aktJahr + 1}</div>`;
+  } else {
+    box.innerHTML = `<div class="box-info">Vorjahr gewählt. Antragsfrist: Einreichung bis 31.12.${aktJahr}</div>`;
+  }
+}
+
+// ---- Persons ----
+function addPerson(name='') {
+  const idx = STATE.persons.length;
+  STATE.persons.push(name);
+  renderPersonList();
+}
+
+function renderPersonList() {
+  const list = document.getElementById('personList');
+  list.innerHTML = '';
+  STATE.persons.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'person-row';
+    row.innerHTML = `
+      <input type="text" value="${escHtml(p)}" placeholder="Name der Ersatzpflegeperson" oninput="STATE.persons[${i}]=this.value">
+      ${STATE.persons.length > 1 ? `<button type="button" class="btn-icon" onclick="removePerson(${i})" title="Entfernen">🗑</button>` : ''}
+    `;
+    list.appendChild(row);
+  });
+}
+
+function removePerson(i) {
+  STATE.persons.splice(i, 1);
+  renderPersonList();
+}
+
+document.getElementById('addPersonBtn').addEventListener('click', () => addPerson());
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ---- Pflegegrad tiles ----
+document.getElementById('pgTiles').addEventListener('click', e => {
+  const tile = e.target.closest('.pg-tile');
+  if (!tile || tile.classList.contains('disabled')) return;
+  document.querySelectorAll('.pg-tile').forEach(t => t.classList.remove('selected'));
+  tile.classList.add('selected');
+  STATE.selectedPG = parseInt(tile.dataset.pg);
+  document.getElementById('err-pg').style.display = 'none';
+});
+
+// ---- Checkbox handlers ----
+document.getElementById('geldErhalten').addEventListener('change', function() {
+  document.getElementById('geldHint').style.display = this.checked ? 'block' : 'none';
+});
+
+document.getElementById('vollesJahr').addEventListener('change', function() {
+  const pgBox = document.getElementById('pflegegradSeit');
+  const pgJahr = document.getElementById('pgJahr');
+  const pgMonat = document.getElementById('pgMonat');
+  if (this.checked) {
+    pgJahr.disabled = true; pgMonat.disabled = true;
+    pgBox.style.opacity = '0.4';
+  } else {
+    pgJahr.disabled = false; pgMonat.disabled = false;
+    pgBox.style.opacity = '1';
+  }
+});
+
+// ---- Step 1 Validation & Next ----
+function goToStep2() {
+  let ok = true;
+  if (!document.getElementById('namePflegebeduerftig').value.trim()) {
+    document.getElementById('err-name').style.display = 'block'; ok = false;
+  } else document.getElementById('err-name').style.display = 'none';
+
+  if (!STATE.selectedPG) {
+    document.getElementById('err-pg').style.display = 'block'; ok = false;
+  } else document.getElementById('err-pg').style.display = 'none';
+
+  if (STATE.persons.filter(p => p.trim()).length === 0) {
+    document.getElementById('err-persons').style.display = 'block'; ok = false;
+  } else document.getElementById('err-persons').style.display = 'none';
+
+  const vollesJahr = document.getElementById('vollesJahr').checked;
+  if (!vollesJahr) {
+    const pgJ = document.getElementById('pgJahr').value;
+    const pgM = document.getElementById('pgMonat').value;
+    if (!pgJ || !pgM) {
+      document.getElementById('err-pgzeit').style.display = 'block'; ok = false;
+    } else document.getElementById('err-pgzeit').style.display = 'none';
+  } else document.getElementById('err-pgzeit').style.display = 'none';
+
+  const sl = parseFloat(document.getElementById('stundenlohn').value);
+  if (!sl || sl <= 0) {
+    document.getElementById('err-stundenlohn').style.display = 'block'; ok = false;
+  } else document.getElementById('err-stundenlohn').style.display = 'none';
+
+  if (!ok) return;
+  buildKHList();
+  goToStep(2);
+}
+
+// ---- Step 2: KH ----
+function buildKHList() {
+  const list = document.getElementById('khList');
+  if (list.children.length === 0 && !document.getElementById('khJa').checked) {
+    // nothing
+  }
+}
+
+function toggleKH() {
+  const checked = document.getElementById('khJa').checked;
+  document.getElementById('addKHBtn').disabled = !checked;
+  document.getElementById('khHinweis').style.display = checked ? 'block' : 'none';
+  if (checked && STATE.khZeitraeume.length === 0) addKHZeitraum();
+}
+
+function addKHZeitraum() {
+  STATE.khZeitraeume.push({von:'', bis:''});
+  renderKHList();
+}
+
+function renderKHList() {
+  const list = document.getElementById('khList');
+  list.innerHTML = '';
+  STATE.khZeitraeume.forEach((z, i) => {
+    const row = document.createElement('div');
+    row.className = 'person-row';
+    row.style.marginBottom = '0.4rem';
+    row.innerHTML = `
+      <label style="font-size:13px;width:35px;flex-shrink:0;">Von</label>
+      <input type="date" value="${z.von}" oninput="STATE.khZeitraeume[${i}].von=this.value" style="flex:1;">
+      <label style="font-size:13px;width:25px;flex-shrink:0;">Bis</label>
+      <input type="date" value="${z.bis}" oninput="STATE.khZeitraeume[${i}].bis=this.value" style="flex:1;">
+      <button type="button" class="btn-icon" onclick="removeKH(${i})" title="Entfernen">🗑</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function removeKH(i) {
+  STATE.khZeitraeume.splice(i, 1);
+  renderKHList();
+}
+
+// ---- Step 3: Höchstbetrag ----
+function computeHoechstbetrag() {
+  if (!STATE.config) return 0;
+  const basis = STATE.config.hoechstbetrag;
+  const heute = new Date();
+  const aktJahr = heute.getFullYear();
+  const aktMonat = heute.getMonth() + 1;
+  const abrJahr = parseInt(document.getElementById('abrechnungsjahr').value);
+  const vollesJahr = document.getElementById('vollesJahr').checked;
+  const laufendesJahr = (abrJahr === aktJahr);
+
+  if (vollesJahr) {
+    if (!laufendesJahr) {
+      // Regel 1: volles Jahr, abgeschlossen
+      STATE.hoechstbetragFormel = `${formatEur(basis)} € (voller Jahresbetrag)`;
+      return Math.round(basis * 100) / 100;
+    } else {
+      // Regel 2: volles Jahr, laufendes Jahr
+      const betrag = Math.round(basis / 12 * aktMonat * 100) / 100;
+      STATE.hoechstbetragFormel = `${formatEur(basis)} € ÷ 12 × ${aktMonat} Monate = ${formatEur(betrag)} €`;
+      return betrag;
+    }
+  } else {
+    const startMonat = parseInt(document.getElementById('pgMonat').value) || 1;
+    if (!laufendesJahr) {
+      // Regel 3: unterjährig, abgeschlossen
+      const anzahl = 13 - startMonat;
+      const betrag = Math.round(basis / 12 * anzahl * 100) / 100;
+      const monatsnamen = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+      STATE.hoechstbetragFormel = `${formatEur(basis)} € ÷ 12 × ${anzahl} Monate (ab ${monatsnamen[startMonat-1]}) = ${formatEur(betrag)} €`;
+      return betrag;
+    } else {
+      // Regel 4: unterjährig, laufendes Jahr
+      const anzahl = aktMonat - startMonat + 1;
+      const safAnzahl = Math.max(1, anzahl);
+      const betrag = Math.round(basis / 12 * safAnzahl * 100) / 100;
+      const monatsnamen = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+      STATE.hoechstbetragFormel = `${formatEur(basis)} € ÷ 12 × ${safAnzahl} Monate (${monatsnamen[startMonat-1]}–${monatsnamen[aktMonat-1]}) = ${formatEur(betrag)} €`;
+      return betrag;
+    }
+  }
+}
+
+// ---- Radio für Betragswahl ----
+function selectBetragRadio(val) {
+  STATE.betragWahl = val;
+  document.getElementById('radioMaxOption').classList.toggle('selected', val === 'max');
+  document.getElementById('radioEigenOption').classList.toggle('selected', val === 'eigen');
+  document.getElementById('radioMax').checked = val === 'max';
+  document.getElementById('radioEigen').checked = val === 'eigen';
+  document.getElementById('eigenBetrag').disabled = val !== 'eigen';
+  if (val === 'eigen') document.getElementById('eigenBetrag').focus();
+  checkEigenBetrag();
+}
+
+function checkEigenBetrag() {
+  if (STATE.betragWahl !== 'eigen') return;
+  const v = parseFloat(document.getElementById('eigenBetrag').value);
+  const hb = STATE.maßgeblichHoechstbetrag;
+  const hint = document.getElementById('eigenBetragHint');
+  if (v > hb) {
+    hint.style.display = 'block';
+    hint.textContent = `Die Pflegekasse erstattet maximal ${formatEur(hb)} €.`;
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+// ---- List Generation ----
+function generateList() {
+  const heute = new Date();
+  const aktJahr = heute.getFullYear();
+  const abrJahr = parseInt(document.getElementById('abrechnungsjahr').value);
+  const stundenlohn = parseFloat(document.getElementById('stundenlohn').value);
+  const zielBetrag = STATE.betragWahl === 'eigen'
+    ? Math.min(parseFloat(document.getElementById('eigenBetrag').value || 0), STATE.maßgeblichHoechstbetrag)
+    : STATE.maßgeblichHoechstbetrag;
+
+  const laufendesJahr = (abrJahr === aktJahr);
+  const startDate = new Date(abrJahr, 0, 1);
+  const endDate = laufendesJahr ? new Date(heute.getFullYear(), heute.getMonth(), heute.getDate()) : new Date(abrJahr, 11, 31);
+
+  const khRanges = STATE.khZeitraeume
+    .filter(z => z.von && z.bis)
+    .map(z => ({ von: parseDate(z.von), bis: parseDate(z.bis) }));
+
+  // Collect all available days
+  const availDays = [];
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate()+1)) {
+    const day = new Date(d);
+    if (!isInKH(day, khRanges)) availDays.push(new Date(day));
+  }
+
+  // Shuffle & pick days, preferring weekdays
+  const weekdays = availDays.filter(d => d.getDay() >= 1 && d.getDay() <= 5);
+  const weekends = availDays.filter(d => d.getDay() === 0 || d.getDay() === 6);
+  const shuffled = shuffle([...weekdays, ...weekdays, ...weekdays, ...weekends]);
+  const uniqueDays = [];
+  const seen = new Set();
+  for (const d of shuffled) {
+    const k = d.toISOString().slice(0,10);
+    if (!seen.has(k)) { seen.add(k); uniqueDays.push(d); }
+  }
+  uniqueDays.sort((a,b) => a-b);
+
+  const stundenOpts = [2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5,7.0,7.5,7.9];
+  const persons = STATE.persons.filter(p => p.trim());
+  let liste = [];
+  let sumBetrag = 0;
+
+  for (const day of uniqueDays) {
+    if (sumBetrag >= zielBetrag) break;
+    const remaining = zielBetrag - sumBetrag;
+    const maxHours = Math.min(7.9, remaining / stundenlohn);
+    if (maxHours < 0.5) break;
+    const feasible = stundenOpts.filter(h => h <= maxHours);
+    let stunden;
+    if (feasible.length === 0) break;
+    // Last entry: pick exact hours to hit target
+    const isLast = (remaining / stundenlohn) < stundenOpts[stundenOpts.length - 1];
+    if (isLast) {
+      stunden = Math.floor(maxHours * 2) / 2;
+      if (stunden < 0.5) stunden = 0.5;
+      if (stunden > 7.9) stunden = 7.9;
+      // recalculate to be precise
+    } else {
+      stunden = feasible[Math.floor(Math.random() * feasible.length)];
+    }
+    const betrag = Math.round(stunden * stundenlohn * 100) / 100;
+    const newSum = Math.round((sumBetrag + betrag) * 100) / 100;
+    if (newSum > zielBetrag + 0.001) {
+      // Reduce stunden to not exceed
+      const exactH = remaining / stundenlohn;
+      stunden = Math.floor(exactH * 2) / 2;
+      if (stunden < 0.5) break;
+    }
+    const personIdx = persons.length > 1 ? Math.floor(Math.random() * persons.length) : 0;
+    liste.push({
+      datum: day,
+      stunden: stunden,
+      betrag: Math.round(stunden * stundenlohn * 100) / 100,
+      person: persons[personIdx] || '',
+    });
+    sumBetrag = Math.round((sumBetrag + Math.round(stunden * stundenlohn * 100) / 100) * 100) / 100;
+  }
+
+  // Adjust last entry
+  if (liste.length > 0) {
+    const diff = Math.round((zielBetrag - sumBetrag) * 100) / 100;
+    if (Math.abs(diff) > 0.001) {
+      const last = liste[liste.length - 1];
+      last.betrag = Math.round((last.betrag + diff) * 100) / 100;
+      last.stunden = Math.round(last.betrag / stundenlohn * 10) / 10;
+    }
+  }
+
+  STATE.listData = liste.map((r, i) => ({
+    id: i,
+    datum: r.datum,
+    stunden: r.stunden,
+    betrag: r.betrag,
+    person: r.person,
+    editing: false,
+  }));
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function isInKH(date, ranges) {
+  for (const r of ranges) {
+    if (!r.von || !r.bis) continue;
+    if (date >= r.von && date <= r.bis) return true;
+  }
+  return false;
+}
+
+function renderList() {
+  const heute = new Date(); heute.setHours(0,0,0,0);
+  const abrJahr = parseInt(document.getElementById('abrechnungsjahr').value);
+  const stundenlohn = parseFloat(document.getElementById('stundenlohn').value);
+  const persons = STATE.persons.filter(p => p.trim());
+  const multiPerson = persons.length > 1;
+  const khRanges = STATE.khZeitraeume
+    .filter(z => z.von && z.bis)
+    .map(z => ({ von: parseDate(z.von), bis: parseDate(z.bis) }));
+
+  // Build thead
+  const thead = document.getElementById('listThead');
+  thead.innerHTML = '';
+  const hr = thead.insertRow();
+  ['Nr.','Datum','Stunden','Betrag (€)', ...(multiPerson?['Wer war da?']:[]),'Bearbeiten'].forEach(h => {
+    const th = document.createElement('th'); th.textContent = h; hr.appendChild(th);
+  });
+
+  // Build tbody
+  const tbody = document.getElementById('listBody');
+  tbody.innerHTML = '';
+  let errors = 0;
+  let sumH = 0, sumB = 0;
+
+  STATE.listData.forEach((row, idx) => {
+    const d = row.datum instanceof Date ? row.datum : new Date(row.datum);
+    d.setHours(0,0,0,0);
+    const isInKHRange = isInKH(d, khRanges);
+    const isFuture = d > heute;
+    const stOver = row.stunden > 7.9;
+    if (stOver || isFuture) errors++;
+
+    const tr = tbody.insertRow();
+    if (stOver || isFuture) tr.classList.add('row-error');
+    else if (isInKHRange) tr.classList.add('row-warn');
+
+    if (row.editing) {
+      // Inline edit mode
+      tr.innerHTML = `
+        <td>${idx+1}</td>
+        <td><input type="date" value="${d.toISOString().slice(0,10)}" id="edit-datum-${idx}" style="width:140px;padding:0.3rem;font-size:13px;"></td>
+        <td><input type="number" value="${row.stunden}" min="0.5" max="7.9" step="0.5" id="edit-st-${idx}" style="width:70px;padding:0.3rem;font-size:13px;"></td>
+        <td>${formatEur(row.betrag)}</td>
+        ${multiPerson ? `<td><select id="edit-person-${idx}" style="padding:0.3rem;font-size:13px;">${persons.map(p=>`<option value="${escHtml(p)}" ${p===row.person?'selected':''}>${escHtml(p)}</option>`).join('')}</select></td>` : ''}
+        <td>
+          <button class="btn-primary" style="padding:0.3rem 0.6rem;font-size:12px;" onclick="saveEdit(${idx}, ${stundenlohn})">✓ Speichern</button>
+          <button class="btn-secondary" style="padding:0.3rem 0.6rem;font-size:12px;margin-left:0.3rem;" onclick="cancelEdit(${idx})">✗</button>
+          <button class="btn-secondary" style="padding:0.3rem 0.6rem;font-size:12px;margin-left:0.3rem;color:#E24B4A;" onclick="deleteRow(${idx})">🗑</button>
+        </td>
+      `;
+    } else {
+      let errmsg = '';
+      if (stOver) errmsg = '<br><small style="color:#E24B4A;">Über 7,9 h – Pflegegeld wird gekürzt!</small>';
+      if (isFuture) errmsg = '<br><small style="color:#E24B4A;">Datum liegt in der Zukunft</small>';
+      if (isInKHRange) errmsg = '<br><small style="color:#633806;">Datum liegt im Krankenhaus-Zeitraum!</small>';
+
+      tr.innerHTML = `
+        <td>${idx+1}</td>
+        <td>${formatDate(d)}${errmsg}</td>
+        <td>${row.stunden.toFixed(1)}</td>
+        <td>${formatEur(row.betrag)}</td>
+        ${multiPerson ? `<td>${escHtml(row.person)}</td>` : ''}
+        <td><button class="btn-icon" onclick="startEdit(${idx})" title="Bearbeiten">✏️</button></td>
+      `;
+    }
+    sumH += row.stunden;
+    sumB += row.betrag;
+  });
+
+  // Total row
+  const tfoot = tbody.insertRow();
+  tfoot.classList.add('row-total');
+  const cols = multiPerson ? 6 : 5;
+  tfoot.innerHTML = `
+    <td colspan="${cols-2}" style="text-align:right;font-weight:700;">Gesamt:</td>
+    <td>${sumH.toFixed(1)}</td>
+    <td>${formatEur(Math.round(sumB*100)/100)}</td>
+    ${multiPerson ? '<td></td>' : ''}
+    <td></td>
+  `;
+
+  // Error display
+  const ec = document.getElementById('errorCount');
+  if (errors > 0) {
+    ec.style.display = 'block';
+    ec.textContent = `${errors} Fehler – bitte vor dem Export korrigieren`;
+    document.getElementById('exportBtn').disabled = true;
+    document.getElementById('weiterZuTeilen').disabled = true;
+  } else {
+    ec.style.display = 'none';
+    document.getElementById('exportBtn').disabled = false;
+    document.getElementById('weiterZuTeilen').disabled = false;
+  }
+
+  // Unterschrift
+  renderUnterschrift();
+}
+
+function startEdit(idx) {
+  STATE.listData[idx].editing = true;
+  renderList();
+}
+
+function cancelEdit(idx) {
+  STATE.listData[idx].editing = false;
+  renderList();
+}
+
+function saveEdit(idx, stundenlohn) {
+  const datumVal = document.getElementById(`edit-datum-${idx}`).value;
+  const stundenVal = parseFloat(document.getElementById(`edit-st-${idx}`).value);
+  const d = parseDate(datumVal);
+  const persons = STATE.persons.filter(p => p.trim());
+  const multiPerson = persons.length > 1;
+  let person = STATE.listData[idx].person;
+  if (multiPerson) {
+    const sel = document.getElementById(`edit-person-${idx}`);
+    if (sel) person = sel.value;
+  }
+  STATE.listData[idx].datum = d || STATE.listData[idx].datum;
+  STATE.listData[idx].stunden = stundenVal;
+  STATE.listData[idx].betrag = Math.round(stundenVal * stundenlohn * 100) / 100;
+  STATE.listData[idx].person = person;
+  STATE.listData[idx].editing = false;
+  renderList();
+}
+
+function deleteRow(idx) {
+  STATE.listData.splice(idx, 1);
+  renderList();
+}
+
+function addZeile() {
+  const stundenlohn = parseFloat(document.getElementById('stundenlohn').value);
+  const persons = STATE.persons.filter(p => p.trim());
+  STATE.listData.push({
+    id: Date.now(),
+    datum: new Date(),
+    stunden: 2.0,
+    betrag: Math.round(2.0 * stundenlohn * 100) / 100,
+    person: persons[0] || '',
+    editing: true,
+  });
+  renderList();
+}
+
+function regenerateList() {
+  generateList();
+  renderList();
+}
+
+function renderUnterschrift() {
+  const geldErhalten = document.getElementById('geldErhalten').checked;
+  const box = document.getElementById('unterschriftBereich');
+  if (!geldErhalten) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const persons = STATE.persons.filter(p => p.trim());
+  let html = '<div style="margin-top:1rem;font-weight:700;margin-bottom:0.5rem;">Unterschriften – Betrag dankend erhalten:</div>';
+  persons.forEach(p => {
+    html += `<div class="sig-person">
+      <div style="height:50px;border-bottom:1px solid #333;"></div>
+      <div class="sig-line">${escHtml(p)} – Betrag dankend erhalten</div>
+    </div>`;
+  });
+  document.getElementById('unterschriftInhalt').innerHTML = html;
+}
+
+// ---- Design selection ----
+function selectDesign(n) {
+  STATE.selectedDesign = n;
+  document.querySelectorAll('.design-tile').forEach(t => {
+    t.classList.toggle('selected', parseInt(t.dataset.design) === n);
+  });
+}
+
+// ---- Step navigation ----
+function goToStep(n) {
+  if (n === 3) {
+    STATE.maßgeblichHoechstbetrag = computeHoechstbetrag();
+    document.getElementById('hoechstbetragAnzeige').textContent = formatEur(STATE.maßgeblichHoechstbetrag) + ' €';
+    document.getElementById('hoechstbetragFormel').textContent = STATE.hoechstbetragFormel || '';
+    document.getElementById('radioMaxLabel').textContent = `Höchstbetrag vollständig ausschöpfen (${formatEur(STATE.maßgeblichHoechstbetrag)} €)`;
+  }
+  if (n === 5) {
+    generateList();
+    renderList();
+  }
+
+  STATE.currentStep = n;
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(`step${n}`).classList.add('active');
+  document.querySelectorAll('.progress-step').forEach(s => {
+    const sn = parseInt(s.dataset.step);
+    s.classList.remove('active','done');
+    if (sn < n) s.classList.add('done');
+    else if (sn === n) s.classList.add('active');
+  });
+  window.scrollTo(0,0);
+}
+
+// ---- Step 4 PayPal ----
+function openPayPal() {
+  if (STATE.config && STATE.config.paypal_link) {
+    window.open(STATE.config.paypal_link, '_blank');
+  }
+  document.getElementById('zahlungAbgeschlossenBtn').style.display = 'inline-block';
+  document.getElementById('paypalNachBtn').style.display = 'block';
+}
+
+function zahlungAbgeschlossen() {
+  document.getElementById('zahlungErfolgBox').style.display = 'block';
+  document.getElementById('paypalBtn').style.display = 'none';
+  document.getElementById('zahlungAbgeschlossenBtn').style.display = 'none';
+}
+
+// ---- Password check ----
+let pwTimeout = null;
+function checkPasswort() {
+  const val = document.getElementById('internPasswort').value;
+  if (!val) {
+    document.getElementById('bypassBadge').className = 'badge badge-gray';
+    document.getElementById('bypassBadge').textContent = 'Gesperrt';
+    document.getElementById('bypassBtnBox').style.display = 'none';
+    return;
+  }
+  clearTimeout(pwTimeout);
+  pwTimeout = setTimeout(async () => {
+    const fd = new FormData();
+    fd.append('passwort', val);
+    const resp = await fetch('check-password.php', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (data.ok) {
+      document.getElementById('bypassBadge').className = 'badge badge-green';
+      document.getElementById('bypassBadge').textContent = 'Entsperrt';
+      document.getElementById('bypassBtnBox').style.display = 'block';
+    } else {
+      document.getElementById('bypassBadge').className = 'badge badge-gray';
+      document.getElementById('bypassBadge').textContent = 'Gesperrt';
+      document.getElementById('bypassBtnBox').style.display = 'none';
+    }
+  }, 600);
+}
+
+// ---- Share ----
+function shareVia(platform) {
+  const url = encodeURIComponent(window.location.href);
+  const text = encodeURIComponent('Abrechnungsnachweis Verhinderungspflege – kostenloses Tool der Stegemann Horn Stiftung');
+  if (platform === 'facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+  else if (platform === 'whatsapp') window.open(`https://wa.me/?text=${text}%20${url}`, '_blank');
+  else if (platform === 'email') window.location.href = `mailto:?subject=${text}&body=${url}`;
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    document.getElementById('copySuccess').style.display = 'block';
+    setTimeout(() => document.getElementById('copySuccess').style.display = 'none', 3000);
+  });
+}
+
+// ---- PDF Export ----
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const design = STATE.selectedDesign;
+  const showFooter = document.getElementById('showFooter').checked;
+  const pageW = 210, pageH = 297, margin = 15;
+  const contentW = pageW - 2 * margin;
+
+  // Colors
+  let headerFill, headerText, thFill, thText, totalFill, totalText;
+  if (design === 1) {
+    headerFill = [40,40,40]; headerText = [255,255,255];
+    thFill = [220,220,220]; thText = [40,40,40];
+    totalFill = [40,40,40]; totalText = [255,255,255];
+  } else if (design === 2) {
+    headerFill = [255,107,107]; headerText = [255,255,255];
+    thFill = [255,240,237]; thText = [153,60,29];
+    totalFill = [255,107,107]; totalText = [255,255,255];
+  } else {
+    headerFill = [108,99,255]; headerText = [255,255,255];
+    thFill = [238,237,254]; thText = [60,52,137];
+    totalFill = [108,99,255]; totalText = [255,255,255];
+  }
+
+  let y = margin;
+
+  // Header
+  doc.setFillColor(...headerFill);
+  doc.rect(margin, y, contentW, 14, 'F');
+  doc.setTextColor(...headerText);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('Abrechnungsnachweis Verhinderungspflege', margin + 4, y + 9.5);
+  y += 18;
+
+  // Meta info
+  doc.setTextColor(40,40,40);
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  const abrJahr = document.getElementById('abrechnungsjahr').value;
+  const namePB = document.getElementById('namePflegebeduerftig').value;
+  const vsnr = document.getElementById('versichertennummer').value;
+  const nameVerh = document.getElementById('nameVerhinderung').value;
+  const persons = STATE.persons.filter(p => p.trim());
+  const sl = parseFloat(document.getElementById('stundenlohn').value);
+
+  const meta = [
+    [`Abrechnungsjahr:`, abrJahr],
+    [`Pflegebedürftige Person:`, `${namePB}${vsnr ? '  |  Versichertennr.: ' + vsnr : ''}  |  Pflegegrad: ${STATE.selectedPG}`],
+    [`Verhinderte Pflegeperson:`, nameVerh || '–'],
+    [`Ersatzpflegeperson(en):`, persons.join(', ')],
+    [`Stundenlohn:`, `${formatEur(sl)} €/h`],
+  ];
+
+  meta.forEach(([k,v]) => {
+    doc.setFont('helvetica','bold'); doc.text(k, margin, y);
+    doc.setFont('helvetica','normal'); doc.text(v, margin + 55, y);
+    y += 6;
+  });
+  y += 4;
+
+  // Table
+  const multiPerson = persons.length > 1;
+  const cols = multiPerson
+    ? ['Nr.','Datum','Stunden','Betrag (€)','Wer war da?']
+    : ['Nr.','Datum','Stunden','Betrag (€)'];
+  const colW = multiPerson ? [10,35,22,28,45] : [10,40,28,32];
+  const rowH = 7;
+
+  // Thead
+  doc.setFillColor(...thFill);
+  doc.rect(margin, y, contentW, rowH, 'F');
+  doc.setTextColor(...thText);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  let cx = margin + 2;
+  cols.forEach((c,i) => { doc.text(c, cx, y + 4.8); cx += colW[i]; });
+  if (design === 1) { doc.setDrawColor(40,40,40); doc.line(margin, y+rowH, margin+contentW, y+rowH); }
+  y += rowH;
+
+  // Rows
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(40,40,40);
+  let sumH = 0, sumB = 0;
+  STATE.listData.forEach((row, idx) => {
+    const d = row.datum instanceof Date ? row.datum : new Date(row.datum);
+    const cells = multiPerson
+      ? [`${idx+1}`, formatDate(d), row.stunden.toFixed(1), formatEur(row.betrag), row.person]
+      : [`${idx+1}`, formatDate(d), row.stunden.toFixed(1), formatEur(row.betrag)];
+
+    if (y + rowH > pageH - (showFooter?15:10)) {
+      doc.addPage();
+      y = margin;
+    }
+    if (idx % 2 === 0) { doc.setFillColor(248,248,248); doc.rect(margin, y, contentW, rowH, 'F'); }
+    cx = margin + 2;
+    cells.forEach((c,i) => { doc.text(String(c), cx, y + 4.8); cx += colW[i]; });
+    doc.setDrawColor(220,220,220); doc.line(margin, y+rowH, margin+contentW, y+rowH);
+    y += rowH;
+    sumH += row.stunden;
+    sumB += row.betrag;
+  });
+
+  // Total row
+  if (y + rowH > pageH - 15) { doc.addPage(); y = margin; }
+  doc.setFillColor(...totalFill);
+  doc.rect(margin, y, contentW, rowH, 'F');
+  doc.setTextColor(...totalText);
+  doc.setFont('helvetica','bold');
+  const totalCols = multiPerson
+    ? ['','Gesamt:', sumH.toFixed(1), formatEur(Math.round(sumB*100)/100), '']
+    : ['','Gesamt:', sumH.toFixed(1), formatEur(Math.round(sumB*100)/100)];
+  cx = margin + 2;
+  totalCols.forEach((c,i) => { doc.text(c, cx, y + 4.8); cx += colW[i]; });
+  y += rowH + 4;
+
+  // Signature blocks
+  const geldErhalten = document.getElementById('geldErhalten').checked;
+  if (geldErhalten) {
+    doc.setTextColor(40,40,40); doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    persons.forEach(p => {
+      if (y + 25 > pageH - 15) { doc.addPage(); y = margin; }
+      y += 8;
+      doc.setDrawColor(40,40,40);
+      doc.line(margin, y, margin + 80, y);
+      y += 5;
+      doc.text(`${p} – Betrag dankend erhalten`, margin, y);
+      y += 10;
+    });
+  }
+
+  // Footer
+  if (showFooter) {
+    doc.setFontSize(8); doc.setTextColor(160,160,160); doc.setFont('helvetica','normal');
+    doc.text('Erstellt mit Abrechnungsnachweis Verhinderungspflege – Stegemann Horn Stiftung', margin, pageH - 8);
+  }
+
+  doc.save(`Abrechnungsnachweis_Verhinderungspflege_${abrJahr}.pdf`);
+  STATE.pdfCreated = true;
+  document.getElementById('exportHinweis').style.display = 'block';
+  document.getElementById('weiterZuTeilen').disabled = false;
+}
+
+// ---- Event listeners ----
+function setupEventListeners() {
+  document.getElementById('abrechnungsjahr').addEventListener('change', () => {
+    initPGJahrDropdown();
+  });
+}
+</script>
+</body>
+</html>
