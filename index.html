@@ -286,11 +286,11 @@
 
       <div class="field">
         <div class="checkbox-row">
-          <input type="checkbox" id="vollesJahr">
+          <input type="checkbox" id="vollesJahr" checked>
           <label class="checkbox-label" for="vollesJahr">Pflegegrad besteht schon länger als das Abrechnungsjahr – volles Jahr abrechenbar</label>
         </div>
         <div class="hint">Bis Juni 2025 war eine Vorpflegezeit von 6 Monaten erforderlich. Ab Juli 2025 ist diese Regelung entfallen.</div>
-        <div id="pflegegradSeit" style="display:flex; gap:0.75rem; margin-top:0.7rem; flex-wrap:wrap;">
+        <div id="pflegegradSeit" style="display:flex; gap:0.75rem; margin-top:0.7rem; flex-wrap:wrap; opacity:0.4;">
           <div style="flex:1; min-width:140px;">
             <label>Pflegegrad besteht seit – Jahr <span class="req">*</span></label>
             <select id="pgJahr"></select>
@@ -400,35 +400,35 @@
         <div class="paypal-detail" style="margin-bottom:1rem;">Empfänger: Stegemann Horn Stiftung · info@stegemann-horn-stiftung.de</div>
         <button class="btn-primary" id="paypalBtn" onclick="openPayPal()">Jetzt mit PayPal zahlen</button>
 
-        <!-- Countdown -->
-        <div id="paypalCountdown" style="display:none;margin-top:1rem;background:#f4f6f8;border:1px solid #d0d4da;border-radius:8px;padding:1rem;text-align:center;">
-          <div style="font-size:14px;color:#555;margin-bottom:0.4rem;">Bitte schließen Sie die Zahlung bei PayPal ab. Der nächste Schritt erscheint in</div>
-          <div id="countdownZahl" style="font-size:2.4rem;font-weight:800;color:#178fd4;line-height:1.1;">90</div>
-          <div style="font-size:14px;color:#555;margin-top:0.3rem;">Sekunden…</div>
-        </div>
-
-        <!-- Transaktions-ID + Abschluss-Button -->
-        <div id="transaktionBox" style="display:none;margin-top:1rem;">
-          <label style="display:block;font-weight:600;margin-bottom:0.3rem;">PayPal-Transaktions-ID eingeben</label>
+        <!-- Transaktions-ID – erscheint sofort nach PayPal-Klick -->
+        <div id="transaktionBox" style="display:none;margin-top:1.2rem;text-align:left;">
+          <label style="display:block;font-weight:600;margin-bottom:0.3rem;">Ihre PayPal-Transaktions-ID</label>
           <input type="text" id="transaktionId" placeholder="z. B. 5TY12345XY123456A" oninput="checkTransaktionId()" style="max-width:340px;">
-          <div class="hint">Die Transaktions-ID finden Sie auf Ihrer PayPal-Bestätigungsseite oder in der Bestätigungs-E-Mail von PayPal (Beispiel: 5TY12345XY123456A)</div>
-          <div style="margin-top:0.75rem;">
-            <button class="btn-primary" id="zahlungAbgeschlossenBtn" onclick="zahlungAbgeschlossen()" disabled style="background:#1D9E75;opacity:0.5;cursor:not-allowed;">
-              Zahlung abgeschlossen – Liste erstellen →
+          <div class="hint">Die Transaktions-ID finden Sie in Ihrer PayPal-Bestätigungs-E-Mail oder auf der PayPal-Bestätigungsseite (Beispiel: 5TY12345XY123456A)</div>
+          <div style="margin-top:0.75rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            <button class="btn-primary" id="zahlungPruefenBtn" onclick="zahlungPruefen()" disabled style="opacity:0.5;cursor:not-allowed;">
+              Zahlung bestätigen
             </button>
+            <span id="pruefSpinner" style="display:none;color:#555;font-size:14px;">⏳ Wird geprüft…</span>
+          </div>
+          <div id="pruefFehler" style="display:none;margin-top:0.75rem;" class="box-error">
+            ❌ Diese Transaktions-ID wurde nicht gefunden oder wurde bereits verwendet. Bitte prüfen Sie Ihre PayPal-Bestätigungs-E-Mail und warten Sie ggf. 1–2 Minuten nach der Zahlung.
           </div>
         </div>
       </div>
 
       <div id="zahlungErfolgBox" style="display:none;">
         <div class="box-success">
-          ✅ Vielen Dank für Ihre Unterstützung! Ihr PayPal-Beleg dient als ausreichender Spendennachweis für das Finanzamt
-          (Spenden bis 300 € benötigen keine förmliche Spendenquittung, § 50 Abs. 2 EStDV).
-          Für eine offizielle Zuwendungsbestätigung wenden Sie sich bitte an: info@stegemann-horn-stiftung.de
+          ✅ Zahlung bestätigt! Vielen Dank für Ihre Unterstützung der Stegemann Horn Stiftung.
         </div>
         <div style="margin-top:0.75rem; text-align:right;">
           <button class="btn-primary" onclick="goToStep(5)">Liste erstellen →</button>
         </div>
+      </div>
+
+      <div class="box-success" style="margin-top:0.75rem;">
+        Ihr PayPal-Beleg reicht als Spendennachweis für das Finanzamt aus (Spenden bis 300 € benötigen keine förmliche Spendenquittung, § 50 Abs. 2 EStDV).
+        Für eine offizielle Zuwendungsbestätigung wenden Sie sich bitte an: info@stegemann-horn-stiftung.de
       </div>
 
       <div class="divider-text">Interner Zugang</div>
@@ -572,6 +572,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPGJahrDropdown();
   addPerson();
   setupEventListeners();
+  // Haken ist standardmäßig gesetzt → Felder initial deaktivieren
+  document.getElementById('pgJahr').disabled = true;
+  document.getElementById('pgMonat').disabled = true;
 });
 
 function formatEur(v) { return (Math.round(v*100)/100).toFixed(2); }
@@ -791,11 +794,28 @@ function computeHoechstbetrag() {
     }
   } else {
     const startMonat = parseInt(document.getElementById('pgMonat').value) || 1;
+    const startJahr = parseInt(document.getElementById('pgJahr').value) || abrJahr;
+    const monatsnamen = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+    // Pflegegrad-Datum liegt VOR dem Abrechnungsjahr → volles Jahr behandeln
+    if (startJahr < abrJahr) {
+      STATE.hoechstbetragHinweis = 'vor';
+      if (!laufendesJahr) {
+        STATE.hoechstbetragFormel = `${formatEur(basis)} € (voller Jahresbetrag – Pflegegrad bestand bereits vor ${abrJahr})`;
+        return Math.round(basis * 100) / 100;
+      } else {
+        const betrag = Math.round(basis / 12 * aktMonat * 100) / 100;
+        STATE.hoechstbetragFormel = `${formatEur(basis)} € ÷ 12 × ${aktMonat} Monate (Pflegegrad bestand bereits vor ${abrJahr}) = ${formatEur(betrag)} €`;
+        return betrag;
+      }
+    }
+
+    // Pflegegrad-Datum liegt IM Abrechnungsjahr → anteilig
+    STATE.hoechstbetragHinweis = null;
     if (!laufendesJahr) {
       // Regel 3: unterjährig, abgeschlossen
       const anzahl = 13 - startMonat;
       const betrag = Math.round(basis / 12 * anzahl * 100) / 100;
-      const monatsnamen = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
       STATE.hoechstbetragFormel = `${formatEur(basis)} € ÷ 12 × ${anzahl} Monate (ab ${monatsnamen[startMonat-1]}) = ${formatEur(betrag)} €`;
       return betrag;
     } else {
@@ -803,7 +823,6 @@ function computeHoechstbetrag() {
       const anzahl = aktMonat - startMonat + 1;
       const safAnzahl = Math.max(1, anzahl);
       const betrag = Math.round(basis / 12 * safAnzahl * 100) / 100;
-      const monatsnamen = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
       STATE.hoechstbetragFormel = `${formatEur(basis)} € ÷ 12 × ${safAnzahl} Monate (${monatsnamen[startMonat-1]}–${monatsnamen[aktMonat-1]}) = ${formatEur(betrag)} €`;
       return betrag;
     }
@@ -1127,10 +1146,26 @@ function selectDesign(n) {
 // ---- Step navigation ----
 function goToStep(n) {
   if (n === 3) {
+    STATE.hoechstbetragHinweis = null;
     STATE.maßgeblichHoechstbetrag = computeHoechstbetrag();
     document.getElementById('hoechstbetragAnzeige').textContent = formatEur(STATE.maßgeblichHoechstbetrag) + ' €';
     document.getElementById('hoechstbetragFormel').textContent = STATE.hoechstbetragFormel || '';
     document.getElementById('radioMaxLabel').textContent = `Höchstbetrag vollständig ausschöpfen (${formatEur(STATE.maßgeblichHoechstbetrag)} €)`;
+    // Hinweis: Pflegegrad-Datum lag vor Abrechnungsjahr
+    let vorHinweis = document.getElementById('pgVorJahrHinweis');
+    if (!vorHinweis) {
+      vorHinweis = document.createElement('div');
+      vorHinweis.id = 'pgVorJahrHinweis';
+      vorHinweis.className = 'box-info';
+      vorHinweis.style.marginTop = '0.75rem';
+      document.getElementById('hoechstbetragBox').after(vorHinweis);
+    }
+    if (STATE.hoechstbetragHinweis === 'vor') {
+      vorHinweis.textContent = 'Das eingegebene Datum liegt vor dem Abrechnungsjahr – es wird das volle Jahr abgerechnet.';
+      vorHinweis.style.display = 'block';
+    } else {
+      vorHinweis.style.display = 'none';
+    }
   }
   if (n === 5) {
     generateList();
@@ -1150,37 +1185,16 @@ function goToStep(n) {
 }
 
 // ---- Step 4 PayPal ----
-let countdownInterval = null;
-
 function openPayPal() {
   if (STATE.config && STATE.config.paypal_link) {
     window.open(STATE.config.paypal_link, '_blank');
   }
-  const btn = document.getElementById('paypalBtn');
-  btn.disabled = true;
-
-  const countdown = document.getElementById('paypalCountdown');
-  const zahlDiv = document.getElementById('countdownZahl');
-  countdown.style.display = 'block';
-
-  let sek = 90;
-  zahlDiv.textContent = sek;
-
-  clearInterval(countdownInterval);
-  countdownInterval = setInterval(() => {
-    sek--;
-    zahlDiv.textContent = sek;
-    if (sek <= 0) {
-      clearInterval(countdownInterval);
-      countdown.style.display = 'none';
-      document.getElementById('transaktionBox').style.display = 'block';
-    }
-  }, 1000);
+  document.getElementById('transaktionBox').style.display = 'block';
 }
 
 function checkTransaktionId() {
   const val = document.getElementById('transaktionId').value;
-  const btn = document.getElementById('zahlungAbgeschlossenBtn');
+  const btn = document.getElementById('zahlungPruefenBtn');
   if (val.length >= 8) {
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -1192,10 +1206,36 @@ function checkTransaktionId() {
   }
 }
 
-function zahlungAbgeschlossen() {
-  document.getElementById('zahlungErfolgBox').style.display = 'block';
-  document.getElementById('paypalBtn').style.display = 'none';
-  document.getElementById('transaktionBox').style.display = 'none';
+async function zahlungPruefen() {
+  const txn = document.getElementById('transaktionId').value.trim();
+  const btn = document.getElementById('zahlungPruefenBtn');
+  const spinner = document.getElementById('pruefSpinner');
+  const fehler = document.getElementById('pruefFehler');
+
+  btn.disabled = true;
+  spinner.style.display = 'inline';
+  fehler.style.display = 'none';
+
+  try {
+    const fd = new FormData();
+    fd.append('txn_id', txn);
+    const resp = await fetch('check-payment.php', { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (data.ok) {
+      document.getElementById('zahlungErfolgBox').style.display = 'block';
+      document.getElementById('paypalBtn').style.display = 'none';
+      document.getElementById('transaktionBox').style.display = 'none';
+    } else {
+      fehler.style.display = 'block';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    fehler.style.display = 'block';
+    btn.disabled = false;
+  } finally {
+    spinner.style.display = 'none';
+  }
 }
 
 // ---- Password check ----
