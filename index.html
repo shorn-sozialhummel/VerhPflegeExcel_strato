@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Abrechnungsnachweis Verhinderungspflege</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://www.paypal.com/sdk/js?client-id=AWck7lYoeA3ARrHxJCfWrDz75-FyvspB2EFQkMGQKyrbuy_pk-pHJVmkhPxBtd851UKeYGcbcLtHDrsA&currency=EUR&intent=capture"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=AWck71YoeA3ARrHxJCfWrDz75-FyvspB2EFQkMGQKyrbuy_pk-pHJVmkhPxBtd851UKeYGcbcLtHDrsA&currency=EUR&intent=capture&disable-funding=sepa&locale=de_DE"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -320,9 +320,32 @@
       </div>
     </div>
 
+    <div style="background:#FEF9EC;border:1px solid #FAC775;border-radius:8px;
+                padding:1rem 1.25rem;margin-bottom:1rem">
+      <p style="font-size:15px;font-weight:500;margin-bottom:8px">
+        📋 Hinweis zur Nutzung
+      </p>
+      <p style="font-size:14px;color:#333;margin-bottom:12px">
+        Diese App erstellt eine <strong>Vorschlagsliste</strong> als Hilfestellung
+        für Ihre Abrechnung. Die Liste wurde automatisch generiert – bitte prüfen
+        Sie alle Einträge sorgfältig.<br><br>
+        <strong>Sie sind selbst verantwortlich</strong> für die Richtigkeit der
+        Angaben, die Sie bei Ihrer Pflegekasse einreichen. Die Stegemann Horn
+        Stiftung übernimmt keine Haftung für die Vollständigkeit oder Korrektheit
+        der erstellten Liste.
+      </p>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="checkbox" id="hinweis-bestaetigt"
+               style="width:18px;height:18px;margin-top:2px;flex-shrink:0"
+               onchange="toggleWeiterBtn1()">
+        <span style="font-size:14px">Ich habe den Hinweis gelesen und verstanden.</span>
+      </label>
+    </div>
+
     <div class="step-nav">
       <div></div>
-      <button class="btn-primary" onclick="goToStep2()">Weiter →</button>
+      <button class="btn-primary" id="weiter-btn-1" onclick="goToStep2()"
+              disabled style="opacity:0.4;cursor:not-allowed;">Weiter →</button>
     </div>
   </div>
 
@@ -695,6 +718,14 @@ document.getElementById('vollesJahr').addEventListener('change', function() {
 });
 
 // ---- Step 1 Validation & Next ----
+function toggleWeiterBtn1() {
+  const cb  = document.getElementById('hinweis-bestaetigt');
+  const btn = document.getElementById('weiter-btn-1');
+  btn.disabled   = !cb.checked;
+  btn.style.opacity = cb.checked ? '1' : '0.4';
+  btn.style.cursor  = cb.checked ? 'pointer' : 'not-allowed';
+}
+
 function goToStep2() {
   let ok = true;
   if (!document.getElementById('namePflegebeduerftig').value.trim()) {
