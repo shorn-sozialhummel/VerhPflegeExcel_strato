@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Abrechnungsnachweis Verhinderungspflege</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=AWck7lYoeA3ARrHxJCfWrDz75-FyvspB2EFQkMGQKyrbuy_pk-pHJVmkhPxBtd851UKeYGcbcLtHDrsA&currency=EUR&intent=capture"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -393,42 +394,42 @@
     <div class="card">
       <div class="card-title">Zahlung</div>
 
-      <div class="paypal-box">
-        <div class="paypal-logo">Pay<span>Pal</span></div>
-        <div class="paypal-amount">25,49 €</div>
-        <div class="paypal-detail">25,00 € Spende + 0,49 € PayPal-Gebühr (1,9 % + 0,35 €)</div>
-        <div class="paypal-detail" style="margin-bottom:1rem;">Empfänger: Stegemann Horn Stiftung · info@stegemann-horn-stiftung.de</div>
-        <button class="btn-primary" id="paypalBtn" onclick="openPayPal()">Jetzt mit PayPal zahlen</button>
-
-        <!-- Transaktions-ID – erscheint sofort nach PayPal-Klick -->
-        <div id="transaktionBox" style="display:none;margin-top:1.2rem;text-align:left;">
-          <label style="display:block;font-weight:600;margin-bottom:0.3rem;">Ihre PayPal-Transaktions-ID</label>
-          <input type="text" id="transaktionId" placeholder="z. B. 5TY12345XY123456A" oninput="checkTransaktionId()" style="max-width:340px;">
-          <div class="hint">Die Transaktions-ID finden Sie in Ihrer PayPal-Bestätigungs-E-Mail oder auf der PayPal-Bestätigungsseite (Beispiel: 5TY12345XY123456A)</div>
-          <div style="margin-top:0.75rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-            <button class="btn-primary" id="zahlungPruefenBtn" onclick="zahlungPruefen()" disabled style="opacity:0.5;cursor:not-allowed;">
-              Zahlung bestätigen
-            </button>
-            <span id="pruefSpinner" style="display:none;color:#555;font-size:14px;">⏳ Wird geprüft…</span>
+      <!-- PayPal Bereich -->
+      <div id="paypal-bereich">
+        <div style="text-align:center;padding:1rem 0">
+          <div style="background:#003087;color:#fff;font-size:18px;font-weight:700;
+                      padding:6px 16px;border-radius:5px;display:inline-block;
+                      letter-spacing:-0.5px;margin-bottom:1rem">
+            Pay<span style="color:#009cde">Pal</span>
           </div>
-          <div id="pruefFehler" style="display:none;margin-top:0.75rem;" class="box-error">
-            ❌ Diese Transaktions-ID wurde nicht gefunden oder wurde bereits verwendet. Bitte prüfen Sie Ihre PayPal-Bestätigungs-E-Mail und warten Sie ggf. 1–2 Minuten nach der Zahlung.
-          </div>
+          <p style="font-size:26px;font-weight:500;margin:8px 0 4px">25,49 €</p>
+          <p style="font-size:12px;color:#666;margin-bottom:1.5rem">
+            25,00 € Spende + 0,49 € PayPal-Gebühr (1,9% + 0,35 €)<br>
+            Empfänger: Stegemann Horn Stiftung · info@stegemann-horn-stiftung.de
+          </p>
+          <div id="paypal-button-container" style="max-width:400px;margin:0 auto"></div>
+          <p style="font-size:12px;color:#999;margin-top:1rem">
+            Nach der Zahlung wird Ihre Liste sofort erstellt
+          </p>
         </div>
       </div>
 
-      <div id="zahlungErfolgBox" style="display:none;">
-        <div class="box-success">
-          ✅ Zahlung bestätigt! Vielen Dank für Ihre Unterstützung der Stegemann Horn Stiftung.
+      <!-- Wird nach Zahlung eingeblendet -->
+      <div id="zahlung-bestaetigt" style="display:none">
+        <div style="background:#EAF3DE;border:0.5px solid #C0DD97;border-radius:8px;
+                    padding:1rem;margin-bottom:1rem">
+          ✅ <strong style="color:#27500A">Zahlung bestätigt! Vielen Dank für Ihre
+          Unterstützung der Stegemann Horn Stiftung.</strong>
         </div>
-        <div style="margin-top:0.75rem; text-align:right;">
+        <div style="background:#E6F1FB;border:0.5px solid #B5D4F4;border-radius:8px;
+                    padding:1rem;font-size:13px;color:#0C447C;margin-bottom:1rem">
+          Ihr PayPal-Beleg reicht als Spendennachweis für das Finanzamt aus
+          (Spenden bis 300 € benötigen keine förmliche Spendenquittung, § 50 Abs. 2 EStDV).
+          Für eine offizielle Zuwendungsbestätigung: info@stegemann-horn-stiftung.de
+        </div>
+        <div style="text-align:right">
           <button class="btn-primary" onclick="goToStep(5)">Liste erstellen →</button>
         </div>
-      </div>
-
-      <div class="box-success" style="margin-top:0.75rem;">
-        Ihr PayPal-Beleg reicht als Spendennachweis für das Finanzamt aus (Spenden bis 300 € benötigen keine förmliche Spendenquittung, § 50 Abs. 2 EStDV).
-        Für eine offizielle Zuwendungsbestätigung wenden Sie sich bitte an: info@stegemann-horn-stiftung.de
       </div>
 
       <div class="divider-text">Interner Zugang</div>
@@ -1167,6 +1168,9 @@ function goToStep(n) {
       vorHinweis.style.display = 'none';
     }
   }
+  if (n === 4) {
+    initPayPalButtons();
+  }
   if (n === 5) {
     generateList();
     renderList();
@@ -1185,57 +1189,64 @@ function goToStep(n) {
 }
 
 // ---- Step 4 PayPal ----
-function openPayPal() {
-  if (STATE.config && STATE.config.paypal_link) {
-    window.open(STATE.config.paypal_link, '_blank');
-  }
-  document.getElementById('transaktionBox').style.display = 'block';
-}
+let paypalButtonsRendered = false;
 
-function checkTransaktionId() {
-  const val = document.getElementById('transaktionId').value;
-  const btn = document.getElementById('zahlungPruefenBtn');
-  if (val.length >= 8) {
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.style.cursor = 'pointer';
-  } else {
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
-    btn.style.cursor = 'not-allowed';
-  }
-}
+function initPayPalButtons() {
+  if (paypalButtonsRendered) return;
+  if (typeof paypal === 'undefined') return;
 
-async function zahlungPruefen() {
-  const txn = document.getElementById('transaktionId').value.trim();
-  const btn = document.getElementById('zahlungPruefenBtn');
-  const spinner = document.getElementById('pruefSpinner');
-  const fehler = document.getElementById('pruefFehler');
-
-  btn.disabled = true;
-  spinner.style.display = 'inline';
-  fehler.style.display = 'none';
-
-  try {
-    const fd = new FormData();
-    fd.append('txn_id', txn);
-    const resp = await fetch('check-payment.php', { method: 'POST', body: fd });
-    const data = await resp.json();
-
-    if (data.ok) {
-      document.getElementById('zahlungErfolgBox').style.display = 'block';
-      document.getElementById('paypalBtn').style.display = 'none';
-      document.getElementById('transaktionBox').style.display = 'none';
-    } else {
-      fehler.style.display = 'block';
-      btn.disabled = false;
+  paypalButtonsRendered = true;
+  paypal.Buttons({
+    style: {
+      layout: 'vertical',
+      color:  'gold',
+      shape:  'pill',
+      label:  'pay'
+    },
+    createOrder: function(data, actions) {
+      return actions.order.create({
+        purchase_units: [{
+          amount: {
+            value: '25.49',
+            currency_code: 'EUR'
+          },
+          description: 'Abrechnungsnachweis Verhinderungspflege – Stegemann Horn Stiftung',
+          payee: {
+            email_address: 'info@stegemann-horn-stiftung.de'
+          }
+        }]
+      });
+    },
+    onApprove: function(data, actions) {
+      return actions.order.capture().then(function(details) {
+        return fetch('paypal-capture.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderID: data.orderID,
+            payerID: data.payerID,
+            txn_id:  details.purchase_units[0].payments.captures[0].id,
+            betrag:  details.purchase_units[0].payments.captures[0].amount.value
+          })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+          if (result.ok) {
+            document.getElementById('paypal-bereich').style.display = 'none';
+            document.getElementById('zahlung-bestaetigt').style.display = 'block';
+          } else {
+            alert('Fehler bei der Zahlungsbestätigung. Bitte wenden Sie sich an info@stegemann-horn-stiftung.de');
+          }
+        });
+      });
+    },
+    onError: function(err) {
+      alert('Bei der Zahlung ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.');
+    },
+    onCancel: function(data) {
+      // nichts tun – User hat abgebrochen
     }
-  } catch(e) {
-    fehler.style.display = 'block';
-    btn.disabled = false;
-  } finally {
-    spinner.style.display = 'none';
-  }
+  }).render('#paypal-button-container');
 }
 
 // ---- Password check ----
