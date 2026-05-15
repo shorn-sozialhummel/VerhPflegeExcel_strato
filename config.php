@@ -1,7 +1,7 @@
 <?php
 $config = [
   'hoechstbetrag' => 3539.00,
-  'mindestlohn'   => 12.82,
+  'mindestlohn'   => 13.90,
   'paypal_link'   => 'https://paypal.me/stegemannhorn/25.49EUR',
   'paypal_email'  => 'info@stegemann-horn-stiftung.de',
   'passwort'      => 'Xflssg678&',
